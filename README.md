@@ -110,6 +110,74 @@ CREATE TABLE order_items(
 ## Populating the database
 As mentioned above, the database was created to fit the Bike Shop Dataset. The data was imported to each table in DBeaver using the built-in import CSV tool. The process was pretty straight-foward - almost no data cleaning was needed. Some null values were filled, such as the field *manager_id* present in the table *staffs*, where the null values were filled with zeroes.
 
+## Indexing
+
+### Why index the data?
+If we want to recover information about the items which price is greater than or equal to USD 1000, we can do it as such:
+
+```sql
+SELECT product_name, list_price FROM products WHERE list_price >= 1000;
+```
+
+Altough it is a very simple query, it would also be slow if we had a database with millions of entries. That happens because the underlying algorithm used in a simple search, such as the mentioned above, is a sequential search. If you want to recover a value that is present at the end of the table, it will iterate through the full table until it finds it. 
+On the other hand, when you add indexes to your tables, the search will be done using BTree or Hash algorithm (more details on that below), reducing the time needed for data retrieval substantially for very large datasets.
+
+For that reason, we can use function indexes such as the presented below to speed up the process:
+
+```sql
+CREATE INDEX list_price_over_thousand_idx ON products(list_price >= 1000);
+```
+
+And for the prices below USD 1000:
+
+```sql
+CREATE INDEX list_price_below_thousand_idx ON products(list_price < 1000);
+```
+### Creating our indexes
+Altough indexes speed up the data retrieval process, it slows down the data insertion and update of tables. That happens because the data will also be added to the applicable indexes. Hence, it should be used in tables that will not be frequently updated.
+Indexing is also unnecessary with a small amount of data, such as we have in our database here. Just for the purpose of demonstration, let's suppose we have a very large number of tuples in each of our tables, so indexing would be necessary.
+
+Suppose our business is growing exponentially and new clients are being added to our database frequently. Indexing the customer table would not be a great idea, since it would be updated constantly.
+A better candidate for indexing would be our stores table, since the number of new stores being inserted into our database would be a fraction of the customers.
+
+If one wants to retrieve information about the store based on it's name, it could be indexed as such:
+
+```sql
+CREATE INDEX store_name_idx ON stores(store_name)
+```
+
+Now to a more complex index. Suppose we want to recover information about staff members based on the combination of their first and last names.
+```sql
+CREATE INDEX full_name_idx
+  ON staffs(first_name, last_name);
+```
+Creating an index with a code such as the presented above will default to a BTree algorithm. If a Hash algorithm is desired instead, it should be specified in me moment of creation, such as in the code below:
+
+```sql
+CREATE INDEX full_name_idx
+  ON staffs(first_name, last_name)
+   USING HASH;
+```
+
+For now, all the indexes present in our database will be using the default BTree algorithm. The indexes that were created here will be used in the DataViz section.
+
+## Creating procedures
+Simply put, procedures are functions that are stored in memory and can be called at any time to execute a set of instructions. A useful procedure would be to recover a customer's e-mail address using his id. The following code generate such procedure in MariaDB:
+
+ ```sql
+DELIMITER $$
+
+CREATE PROCEDURE recover_email(IN client_id INT)
+BEGIN
+
+  SELECT email FROM customers WHERE customer_id=client_id;
+
+END $$
+```
+Now calling this procedure using the CALL function passing the id 1 as argument yields the following result:
+![pic](pics/swappy-20240324_191031.png)
+
+To answer a few questions that will be presented below, we will generate some procedures. The first one will 
 ## Visualizing the data
 The plots contained below were produced using Pandas and Matplotlib libraries for Python. The code is stored in EDA.ipynb, which can also be found in this repository. The objective was to anwer the questions presented below. Each section will include the question itself, the SQL code used to generate the CSV file for analysis and the plots. The SQL codes can also be found in queries.sql.
 
