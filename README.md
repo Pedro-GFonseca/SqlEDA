@@ -4,7 +4,7 @@
 
 ## Database Schema Design
 Below is the Schema Design for the database. It was created to fit Kaggle's Bike Shop dataset, so I'd like to credit Dillon Myrick for creating it.
-The original dataset can be found in https://www.kaggle.com/datasets/dillonmyrick/bike-store-sample-database.
+The original dataset can be found ![here](https://www.kaggle.com/datasets/dillonmyrick/bike-store-sample-database).
 
 ![dbdesign](pics/swappy-20240321_213504.png)
 
