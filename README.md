@@ -162,7 +162,7 @@ CREATE INDEX full_name_idx
 For now, all the indexes present in our database will be using the default BTree algorithm. The indexes that were created here will be used in the DataViz section.
 
 ## Creating procedures
-Simply put, procedures are functions that are stored in memory and can be called at any time to execute a set of instructions. A useful procedure would be to recover a customer's e-mail address using his id. The following code generate such procedure in MariaDB:
+Simply put, procedures are functions that are stored in memory and can be called at any time to execute a set of instructions. It would be useful to recover a customer's e-mail address using his id. The following code generate such procedure in MariaDB:
 
  ```sql
 DELIMITER $$
