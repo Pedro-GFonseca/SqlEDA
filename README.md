@@ -108,7 +108,7 @@ CREATE TABLE order_items(
 ```
 
 ## Populating the database
-As mentioned above, the database was created to fit the Bike Shop Dataset. The data was imported to each table in DBeaver using the built-in import CSV tool. The process was pretty straight-foward - almost no data cleaning was needed. Some null values were filled, such as the field *manager_id* present in the table *staffs*, where the null values were filled with zeroes.
+As mentioned above, the database was created to fit the Bike Shop Dataset. The data was imported to each table in DBeaver using the built-in import CSV tool. The process was pretty straight-foward - almost no data cleaning was needed. Some null values were filled, such as the field *manager_id* present in the table *staffs*, where the null values were filled with zeroes. The reason for that decision will be discussed in the procedures section.
 
 ## Indexing
 
@@ -198,7 +198,72 @@ DELIMITER ;
 ```
 Now if we call this procedure passing the id 1 as argument we get the following result: </br>
 ![pic2](pics/swappy-20240325_155011.png)
-All the tuples where *manager_id* was equal to 1 had the column *manager_name* updated to Robert.
+All the tuples where *manager_id* was equal to 1 had the column *manager_name* updated to Robert. The same could be done for all other ids.
+Note that the procedure could also be created using the CASE statement:
+```sql
+DELIMITER $$
+CREATE PROCEDURE auto_update_manager(IN id INT)
+ BEGIN
+  CASE id
+   WHEN id = 0 THEN UPDATE staffs SET manager_name = 'No Manager' WHERE manager_id = id;
+   WHEN id = 1 THEN UPDATE staffs SET manager_name = 'Robert' WHERE manager_id = id;
+   WHEN id = 2 THEN UPDATE staffs SET manager_name = 'Christine' WHERE manager_id = id;
+   WHEN id = 5 THEN UPDATE staffs SET manager_name = 'Carla' WHERE manager_id = id;
+   WHEN id = 7 THEN UPDATE staffs SET manager_name = 'Luccas' WHERE manager_id = id;
+   ELSE UPDATE staffs SET manager_name = 'No information' WHERE manager_id = id;
+ END IF;
+END $$
+DELIMITER ;
+```
+
+## Adding Views
+Whenever an order is made, the store owner must know where to ship and who bought which item. we do not need to provide full acess to our database in order for the store owner to retrieve this information. Instead, a view could be created, which will contain only the information needed for this specific context. A view for this case could be created as such:
+
+```sql
+CREATE VIEW santa_cruz_orders AS
+ SELECT
+  CONCAT(c.first_name, ' ', c.last_name) as name, CONCAT(c.street, '- ', c.city, ', ', c.state) as adress, c.zip_code, p.product_name, oi.quantity, oi.order_id
+ FROM
+  customers as c, products as p, order_items as oi, orders as o, stores as s
+ WHERE
+  c.customer_id = o.customer_id AND o.order_id = oi.order_id AND oi.product_id = p.product_id AND store_id = 1;
+```
+
+The same could be done for all other stores, just modifying the *store_id* and the view's name.
+A simple select all statement using this view returns a table like this: </br>
+![pic5](pics/swappy-20240325_164715.png)
+
+## Creating Triggers
+Based on the way our database is structured, what needs to happen whenever an orders is made? We have a stocks table, so an amount equal to the ordered needs to be subtracted from this table.
+```sql
+DELIMITER $$
+
+CREATE TRIGGER auto_update_stocks
+BEFORE INSERT ON order_items
+FOR EACH ROW
+BEGIN
+ UPDATE stocks SET stocks.quantity = stocks.quantity - order_items.quantity WHERE order_items.product_id = stocks.product_id;
+END;
+$$
+
+DELIMITER ;
+```
+This will automatically update the stocks table. We can also check if the stock is enough to supply the ordered amount. In case this is false, an error will be raised and the row will not be inserted.
+```sql
+DELIMITER $$
+
+CREATE TRIGGER auto_check_stocks_tg
+BEFORE INSERT ON order_items
+FOR EACH ROW
+BEGIN 
+	IF order_items.quantity > stocks.quantity THEN SIGNAL SQLSTATE '45000';
+END IF;
+END;
+$$
+
+DELIMITER ;
+```
+
 ## Visualizing the data
 The plots contained below were produced using Pandas and Matplotlib libraries for Python. The code is stored in EDA.ipynb, which can also be found in this repository. The objective was to anwer the questions presented below. Each section will include the question itself, the SQL code used to generate the CSV file for analysis and the plots. The SQL codes can also be found in queries.sql.
 
