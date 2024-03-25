@@ -174,10 +174,31 @@ BEGIN
 
 END $$
 ```
-Now calling this procedure using the CALL function passing the id 1 as argument yields the following result:
+Now calling this procedure using the CALL function passing the id 1 as argument yields the following result: </br>
 ![pic](pics/swappy-20240324_191031.png)
 
-To answer a few questions that will be presented below, we will generate some procedures. The first one will 
+The table *staffs* only identifies managers by their id. We may also want to include their name in the table. First the column *full_name* has to be created.
+```sql
+ALTER TABLE staffs ADD COLUMN full_name VARCHAR(50);
+```
+The table *staffs* only has a few tuples, so we could insert values in the newly added *full_name* column by hand. Otherwise, if the table had millions of tuples, a procedure could be created to automatic update the column with the name of the manager based on his id. We could create such procedure with the following code:
+```sql
+DELIMITER $$
+CREATE PROCEDURE auto_update_manager(IN id INT)
+ BEGIN
+  IF id = 0 THEN UPDATE staffs SET manager_name = 'No Manager' WHERE manager_id = id;
+  ELSEIF id = 1 THEN UPDATE staffs SET manager_name = 'Robert' WHERE manager_id = id;
+  ELSEIF id = 2 THEN UPDATE staffs SET manager_name = 'Christine' WHERE manager_id = id;
+  ELSEIF id = 5 THEN UPDATE staffs SET manager_name = 'Carla' WHERE manager_id = id;
+  ELSEIF id = 7 THEN UPDATE staffs SET manager_name = 'Luccas' WHERE manager_id = id;
+  ELSE UPDATE staffs SET manager_name = 'No information' WHERE manager_id = id;
+ END IF;
+END $$
+DELIMITER ;
+```
+Now if we call this procedure passing the id 1 as argument we get the following result: </br>
+![pic2](pics/swappy-20240325_155011.png)
+All the tuples where *manager_id* was equal to 1 had the column *manager_name* updated to Robert.
 ## Visualizing the data
 The plots contained below were produced using Pandas and Matplotlib libraries for Python. The code is stored in EDA.ipynb, which can also be found in this repository. The objective was to anwer the questions presented below. Each section will include the question itself, the SQL code used to generate the CSV file for analysis and the plots. The SQL codes can also be found in queries.sql.
 
