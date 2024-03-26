@@ -211,7 +211,7 @@ CREATE PROCEDURE auto_update_manager(IN id INT)
    WHEN id = 5 THEN UPDATE staffs SET manager_name = 'Carla' WHERE manager_id = id;
    WHEN id = 7 THEN UPDATE staffs SET manager_name = 'Luccas' WHERE manager_id = id;
    ELSE UPDATE staffs SET manager_name = 'No information' WHERE manager_id = id;
- END IF;
+ END CASE;
 END $$
 DELIMITER ;
 ```
@@ -303,6 +303,7 @@ There are some queries that were not used in the data visualization section. Eit
 ```sql
 SELECT AVG(o.order_id) as orders_average FROM orders as o, stores as s WHERE o.store_id=s.store_id;
 ```
+This returns 740,69.
 
 ### What were the minimum and maximum number of orders made by the same client?
 This was an interesting one. The code below shows that each client made a single purchase in the store, with a single exception who made two purchases.
