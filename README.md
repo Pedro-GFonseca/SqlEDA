@@ -1,5 +1,6 @@
 # SQL-DataViz
- Creation of a SQL Database, populating it with data and using queries to visualize the data with pandas on Python.
+This was supposed to be a repository created for coding challenges proposed in Dio's SQL Database Specialist bootcamp, but i decided to transform it into a guide to core SQL concepts along with some example codes to those concepts. Thus, this project is far from done. 
+If you find any of my notes incomplete or incorrect, feel free to let me know. Also note that I'm using MariaDB here.
 
 
 ## Database Schema Design
@@ -263,6 +264,37 @@ $$
 
 DELIMITER ;
 ```
+## Adding transactions
+Above we created a procedure that automatically deduces the amount ordered of a specific item. It is sensible to do so since we want to avoid selling an item that is no longer avaliable in stock. But what would happen if an order is cancelled? In the way that our database is structured, two tables must be updated. First, the *order_status* column in the *orders* table must be updated to the respective cancelled status code. After that, the ordered items should be added back to the *quantity* column in the *stocks* table. 
+But what would happen if one of this update statements fail? We would have inconsistent information in our database - the *quantity* column in our *stocks* table would no longer reflect the real amount avaliable of that item. To solve this problem, a transaction can be set up so either both tables are updated or none, based on the atomicity principle. 
+We can create such transaction as such:
+```sql
+DELIMITER $$
+CREATE PROCEDURE update_order_status_proc(IN status INT, IN id INT)
+BEGIN
+DECLARE sql_error TINYINT DEFAULT FALSE;
+DECLARE CONTINUE HANDLER FOR SQLEXCEPTION SET sql_error = TRUE;
+START TRANSACTION;
+	UPDATE orders SET order_status = status WHERE order_id = id;
+	UPDATE stocks SET quantity = quantity +
+		(SELECT quantity FROM order_items WHERE order_id = id);
+	IF sql_error = FALSE THEN
+		COMMIT;
+		SELECT 'Transaction sucessful' AS Result;
+	ELSE
+		ROLLBACK;
+		SELECT 'Transaction error' AS Result;
+	END IF;
+END $$
+DELIMITER ; 
+```
+Now calling this procedure passing the status code and id to the CALL function will only modify our database if both *orders* and *stocks* table are updated. If one of them fails to update, the IF block will throw an exception and no changes will be persisted.
+Note that this will only work if autommit is diabled. If autocommit is enabled, it will persist the changes as soon as a statement is called. If it is disabled, it will wait for a COMMIT statement to do so. Autocommit is enabled by default when you start a MySQL (or MariaDB) session. You can check the status by calling the function below:
+```sql
+SELECT @@autocommit;
+```
+This should return 1 if autocommit is enabled and 0 if is disabled.
+## Adding a backup
 
 ## Visualizing the data
 The plots contained below were produced using Pandas and Matplotlib libraries for Python. The code is stored in EDA.ipynb, which can also be found in this repository. The objective was to anwer the questions presented below. Each section will include the question itself, the SQL code used to generate the CSV file for analysis and the plots. The SQL codes can also be found in queries.sql.
