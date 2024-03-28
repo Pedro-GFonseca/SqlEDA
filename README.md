@@ -1,4 +1,4 @@
-# SQL-DataViz
+# SQL Handbook
 This was supposed to be a repository created for coding challenges proposed in Dio's SQL Database Specialist bootcamp, but i decided to transform it into a guide to core SQL concepts along with some example codes to those concepts. Thus, this project is far from done. 
 If you find any of my notes incomplete or incorrect, feel free to let me know. Also note that I'm using MariaDB here.
 
@@ -264,6 +264,50 @@ $$
 
 DELIMITER ;
 ```
+## Isolation
+Isolation level in databases, including MySQL (and MariaDB), defines how transactions interact with each other regarding visibility of data changes and the level of concurrency. It determines the degree to which one transaction's changes are visible to other concurrent transactions. Different isolation levels offer different trade-offs between data consistency, concurrency, and performance. MySQL supports the following standard isolation levels:
+
+### READ UNCOMMITTED: 
+This is the lowest isolation level. It allows a transaction to read data that has been modified by other transactions but not yet committed. It can lead to phenomena like dirty reads, non-repeatable reads, and phantom reads.
+
+### READ COMMITTED: 
+In this isolation level, a transaction can only read data that has been committed by other transactions. It eliminates dirty reads but still allows non-repeatable reads and phantom reads because data can be changed by other transactions between separate reads within the same transaction.
+
+### REPEATABLE READ: 
+This level ensures that within a transaction, the data remains consistent for the duration of the transaction. It prevents dirty reads and non-repeatable reads by holding read locks on all data read by the transaction until it is committed. However, it still allows phantom reads because new rows can be inserted by other transactions.
+
+### SERIALIZABLE: 
+This is the highest isolation level, providing strict transaction isolation. It ensures that transactions are executed as if they were executed serially, one after another, even though they may be executed concurrently. It prevents all types of anomalies (dirty reads, non-repeatable reads, and phantom reads) by placing a range lock on the entire data set the transaction accesses until the transaction is completed.
+
+### Dirty, Non-Repeatable and Phantom reads 
+#### Dirty Reads:
+A dirty read occurs when one transaction reads data that has been modified by another transaction but not yet committed. In other words, a transaction reads data from another transaction that may be rolled back later, resulting in the transaction reading "dirty" or uncommitted data. Dirty reads can lead to incorrect or inconsistent results because the changes being read might never be committed.
+
+#### Non-Repeatable Reads:
+A non-repeatable read occurs when a transaction re-reads data it has previously read within the same transaction, but the data has been modified or deleted by another transaction in the meantime.        This phenomenon results in the transaction seeing different values for the same data within the same transaction, leading to inconsistency. Non-repeatable reads can occur at isolation levels below REPEATABLE READ because they allow other transactions to modify the data being read.
+
+#### Phantom Reads:
+A phantom read occurs when a transaction re-executes a query and finds additional rows that were not present in the initial result set due to another transaction inserting new rows that match the query criteria. Unlike non-repeatable reads, which involve changes to existing rows, phantom reads involve the appearance of new rows that were not visible during the initial query execution. Phantom reads can occur at isolation levels below SERIALIZABLE because they allow other transactions to insert new rows that match the query criteria.
+
+### The trade-off
+It's important to carefully consider the requirements of the application and choose the appropriate isolation level accordingly. There's often a trade-off between data consistency and concurrency, so understanding the behavior of each isolation level is crucial in designing robust and efficient database systems. In our case, we don't wand two customers to be able to purchase the same item as it will lead do problems. At the same time, we don't want our customers to be locked while trying to make a purchase. Since all we care about for this example is if an item is avaliable or not in stock, we don't have to worry about Phantom Reads for now, so a Repeatable Read Isolation Level should do the trick for now.
+
+### Setting and acessing the isolation level
+To show the isolation level for the current session, you can use the code below:
+```sql
+SELECT @@tx_isolation;
+```
+This will return the isolation level for the current session. If you instead want to check the global isolation level, the following code returns that.
+```sql
+SELECT @@GLOBAL.tx_isolation;
+```
+This will return the current isolation.
+If one wants to modify the Isolation Level for the session, it could be done with a simple SET statement:
+```sql
+SET SESSION tx_isolation = <ISOLATION_LEVEL>
+```
+In our case, we do not have to modify this variable, since Repeatable-Read is the default value for the Isolation Level on MariaDB.
+
 ## Adding transactions
 Above we created a procedure that automatically deduces the amount ordered of a specific item. It is sensible to do so since we want to avoid selling an item that is no longer avaliable in stock. But what would happen if an order is cancelled? In the way that our database is structured, two tables must be updated. First, the *order_status* column in the *orders* table must be updated to the respective cancelled status code. After that, the ordered items should be added back to the *quantity* column in the *stocks* table. 
 But what would happen if one of this update statements fail? We would have inconsistent information in our database - the *quantity* column in our *stocks* table would no longer reflect the real amount avaliable of that item. To solve this problem, a transaction can be set up so either both tables are updated or none, based on the atomicity principle. 
@@ -294,60 +338,22 @@ Note that this will only work if autommit is diabled. If autocommit is enabled, 
 SELECT @@autocommit;
 ```
 This should return 1 if autocommit is enabled and 0 if is disabled.
+As the Isolation Level is set to Repeatable-Read, one an user call this procedure, it will lock the read acess until the transaction is complete. Once it's completed, the DBMS will automatically release the read lock.
+
 ## Adding a backup
+### Mysqldump
+Mysqldump is a command-line utility tool provided by MySQL (and its variants like MariaDB) that we can use to perform logical backups of MySQL databases. It generates SQL statements that can be used to recreate the database's structure (schema) and its data. This tool is particularly useful for creating backups of databases that can be easily restored or migrated to another server.
+Docummentation is avaliable ![here](https://dev.mysql.com/doc/refman/8.0/en/mysqldump.html).
+```bash
+mysqldump -u username -p mydatabase > backup.sql
+```
+This command will take as arguments the username (-u), password (-p) and database name (mydatabase). In the case above, it will generate a file named backup.sql containing all the SQL statements. Note that if you are using MariaDB, like I am, it is possible that mysqldump is deprecated by the time you are reading this, so use the command mariadb-dump instead.
+The backup generated is stored in the backup.sql file in this repository.
+
+## Engines
+This section is still in progress.
 
 ## Visualizing the data
-The plots contained below were produced using Pandas and Matplotlib libraries for Python. The code is stored in EDA.ipynb, which can also be found in this repository. The objective was to anwer the questions presented below. Each section will include the question itself, the SQL code used to generate the CSV file for analysis and the plots. The SQL codes can also be found in queries.sql.
+There was a section dedicated to visualizing the data here. Since the puprose of this repository has changed, this section is no longer here. Instead, a new repository will be created for a dedicated EDA.
 
-### What is the number of orders made in each state?
-```sql
-SELECT count(o.order_id) as total_orders, s.store_id, s.store_name, s.state  FROM orders as o, stores as s WHERE o.store_id=s.store_id GROUP BY s.store_id;
-```
-![output1](pics/output.png)
-
-### What was each store's revenue?
-
-```sql
-SELECT SUM(oi.list_price * oi.quantity) as revenue, s.store_name  FROM order_items as oi, stores as s, orders as o WHERE oi.order_id =o.order_id AND o.store_id=s.store_id GROUP BY store_name;
-```
-![output2](pics/output6.png)
-
-### If we split the products in two categories, the first being products which price is above than 1000 USD, and the second being products below this price, how do the sales compare?
-For the items with price below 1000 USD:
-```sql
-SELECT p.product_name, oi.list_price, count(oi.order_id) as total_orders FROM order_items as oi, products as p WHERE oi.product_id=p.product_id GROUP BY product_name HAVING oi.list_price < 1000 ORDER BY total_orders DESC;
-```
-![output3](pics/output4.png)
-
-For the items with price above 1000 USD:
-```sql
-SELECT p.product_name, oi.list_price, count(oi.order_id) as total_orders FROM order_items as oi, products as p WHERE oi.product_id=p.product_id GROUP BY product_name HAVING oi.list_price > 1000 ORDER BY total_orders DESC;
-```
-![output4](pics/output5.png)
-
-### What is the distribution of the prices in this dataset?
-![output5](pics/output3.png)
-
-## Extras
-There are some queries that were not used in the data visualization section. Either they can't be used to produce a plot or they would generate redundant information. Below are those queries.
-
-### What is the sales average?
-```sql
-SELECT AVG(o.order_id) as orders_average FROM orders as o, stores as s WHERE o.store_id=s.store_id;
-```
-This returns 740,69.
-
-### What were the minimum and maximum number of orders made by the same client?
-This was an interesting one. The code below shows that each client made a single purchase in the store, with a single exception who made two purchases.
-
-```sql
-SELECT CONCAT(c.first_name,' ', c.last_name) as full_name, count(o.order_id) AS number_of_purchases FROM orders as o, customers as c WHERE o.customer_id=c.customer_id GROUP BY full_name ORDER BY number_of_purchases DESC LIMIT 5;
-```
-
-Could it be that two clients have the same name? We shall investigate.
-```sql
-SELECT CONCAT(first_name, ' ', last_name) as full_name, customer_id  from customers WHERE first_name="Justina" AND last_name="Jenkins";
-```
-
-The code above returns two entries with the same name and different client ids. Either the store generates a new client id each time a client makes an order or there really are two clients with the same name. Unfortunately, we don't have enough data to explore that further.
 
